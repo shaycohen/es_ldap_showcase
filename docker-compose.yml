@@ -1,0 +1,172 @@
+services:
+
+  dirsrv:
+      image: 389ds/dirsrv:latest
+      platform: linux/amd64
+      volumes: 
+        - ./dirsrv/user_group.ldif:/user_group.ldif
+        - ./dirsrv/dirsrv_init.sh:/dirsrv_init.sh
+        - ./dirsrv/root.ldif:/tmp/root.ldif
+      ports:
+        - "3389:3389"
+        - "3636:3636"
+      environment:
+        DS_DM_PASSWORD: myadminpass
+        DS_ARGS: "-D"
+      networks:
+         - elk
+  setup:
+    profiles:
+      - setup
+    build:
+      context: setup/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    init: true
+    volumes:
+      - ./setup/entrypoint.sh:/entrypoint.sh:ro,Z
+      - ./setup/lib.sh:/lib.sh:ro,Z
+      - ./setup/roles:/roles:ro,Z
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:-}
+      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-}
+      METRICBEAT_INTERNAL_PASSWORD: ${METRICBEAT_INTERNAL_PASSWORD:-}
+      FILEBEAT_INTERNAL_PASSWORD: ${FILEBEAT_INTERNAL_PASSWORD:-}
+      HEARTBEAT_INTERNAL_PASSWORD: ${HEARTBEAT_INTERNAL_PASSWORD:-}
+      MONITORING_INTERNAL_PASSWORD: ${MONITORING_INTERNAL_PASSWORD:-}
+      BEATS_SYSTEM_PASSWORD: ${BEATS_SYSTEM_PASSWORD:-}
+    networks:
+      - elk
+    depends_on:
+      - es01
+      - es02
+      - es03
+
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: es01
+    volumes:
+      - ./elasticsearch/node1/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
+      - ./elasticsearch/node1/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/node1/certs:/usr/share/elasticsearch/config/certs:ro,Z
+      - esdata01:/usr/share/elasticsearch/data:Z
+    environment:
+      node.name: es01
+      cluster.name: my-cluster
+      discovery.seed_hosts: es01,es02,es03
+      cluster.initial_master_nodes: es01,es02,es03
+      bootstrap.memory_lock: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.key: certs/es01.key
+      xpack.security.transport.ssl.certificate: certs/es01.crt
+      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+    ports:
+      - 9200:9200
+    networks:
+      - elk
+
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: es02
+    volumes:
+      - ./elasticsearch/node2/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
+      - ./elasticsearch/node2/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/node2/certs:/usr/share/elasticsearch/config/certs:ro,Z
+      - esdata02:/usr/share/elasticsearch/data:Z
+    environment:
+      node.name: es02
+      cluster.name: my-cluster
+      discovery.seed_hosts: es01,es02,es03
+      cluster.initial_master_nodes: es01,es02,es03
+      bootstrap.memory_lock: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.key: certs/es02.key
+      xpack.security.transport.ssl.certificate: certs/es02.crt
+      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    networks:
+      - elk
+
+  es03:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
+    container_name: es03
+    volumes:
+      - ./elasticsearch/node3/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
+      - ./elasticsearch/node3/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/node3/certs:/usr/share/elasticsearch/config/certs:ro,Z
+      - esdata03:/usr/share/elasticsearch/data:Z
+    environment:
+      node.name: es03
+      cluster.name: my-cluster
+      discovery.seed_hosts: es01,es02,es03
+      cluster.initial_master_nodes: es01,es02,es03
+      bootstrap.memory_lock: true
+      xpack.security.enabled: true
+      xpack.security.transport.ssl.enabled: true
+      xpack.security.transport.ssl.verification_mode: certificate
+      xpack.security.transport.ssl.key: certs/es03.key
+      xpack.security.transport.ssl.certificate: certs/es03.crt
+      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    networks:
+      - elk
+
+  logstash:
+    build:
+      context: logstash/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
+    ports:
+      - 5044:5044
+      - 50000:50000/tcp
+      - 50000:50000/udp
+      - 9600:9600
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
+    networks:
+      - elk
+    depends_on:
+      - es01
+      - es02      
+      - es03
+    restart: unless-stopped
+
+  kibana:
+    build:
+      context: kibana/
+      args:
+        ELASTIC_VERSION: ${ELASTIC_VERSION}
+    volumes:
+      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro,Z
+    ports:
+      - 5601:5601
+    environment:
+      KIBANA_SYSTEM_PASSWORD: ${KIBANA_SYSTEM_PASSWORD:-}
+    networks:
+      - elk
+    depends_on:
+      - es01
+      - es02    
+      - es03  
+    restart: unless-stopped
+
+networks:
+  elk:
+    driver: bridge
+
+volumes:
+  esdata01:
+  esdata02:
+  esdata03:
