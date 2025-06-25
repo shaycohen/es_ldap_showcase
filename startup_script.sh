@@ -47,18 +47,28 @@ sleep 17
 echo "🔧 Initializing LDAP users and groups..."
 docker-compose exec dirsrv bash -c "bash -x dirsrv_init.sh"
 
+sleep 60
 echo "✅ Checking Elasticsearch cluster status..."
-curl -u elastic:ABC@123 -k https://localhost:9200/_cat/nodes?v || true
-
+curl -u 'elastic:ABC@123' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
 echo "🎫 Activating Elasticsearch trial license..."
-curl -X POST -u elastic:ABC@123 -k "https://localhost:9200/_license/start_trial?acknowledge=true" || true
-
-sleep 10
+curl -X POST -u 'elastic:ABC@123' -k 'https://localhost:10443/elasticsearch/_license/start_trial?acknowledge=true'
 
 # echo "🧪 Authenticating with LDAP user..."
-curl -u ldap_user4:password -k https://localhost:9200/_security/_authenticate?pretty || true
+curl -u 'ldap_user4:password' -k 'https://localhost:10443/elasticsearch/_security/_authenticate?pretty'
 
 # echo "📊 Verifying all Elasticsearch nodes are joined..."
-curl -u ldap_user4:password -k https://localhost:9200/_cat/nodes?v || true
+curl -u 'ldap_user4:password' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
+
+# docker-compose restart
+# check kibana password
+curl -u elastic:ABC@123 -X POST https://localhost:10443/elasticsearch/_security/user/kibana_system/_password \
+  -H "Content-Type: application/json" \
+  -d '{"password":"123456"}' -k 
+
+curl -u kibana_system:123456 -k 'https://localhost:10443/elasticsearch/_security/_authenticate'
+
+sleep 3
+docker-compose restart kibana
+curl -u kibana_system:123456 -k 'https://localhost:10443/elasticsearch/_security/_authenticate'
 
 echo "✅ Setup completed!"
