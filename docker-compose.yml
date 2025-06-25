@@ -1,5 +1,4 @@
 services:
-
   dirsrv:
       image: 389ds/dirsrv:latest
       platform: linux/amd64
@@ -13,8 +12,7 @@ services:
       environment:
         DS_DM_PASSWORD: myadminpass
         DS_ARGS: "-D"
-      networks:
-         - elk
+
   setup:
     profiles:
       - setup
@@ -36,112 +34,66 @@ services:
       HEARTBEAT_INTERNAL_PASSWORD: ${HEARTBEAT_INTERNAL_PASSWORD:-}
       MONITORING_INTERNAL_PASSWORD: ${MONITORING_INTERNAL_PASSWORD:-}
       BEATS_SYSTEM_PASSWORD: ${BEATS_SYSTEM_PASSWORD:-}
-    networks:
-      - elk
     depends_on:
-      - es01
-      - es02
-      - es03
+      - elasticsearch
 
 
-  es01:
+  elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
-    container_name: es01
     volumes:
       - ./elasticsearch/node1/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
-      - ./elasticsearch/node1/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
       - ./elasticsearch/node1/certs:/usr/share/elasticsearch/config/certs:ro,Z
-      - esdata01:/usr/share/elasticsearch/data:Z
+      - esdata01:/usr/share/elasticsearch/data
     environment:
-      node.name: es01
-      cluster.name: my-cluster
-      discovery.seed_hosts: es01,es02,es03
-      cluster.initial_master_nodes: es01,es02,es03
-      bootstrap.memory_lock: true
-      xpack.security.enabled: true
-      xpack.security.transport.ssl.enabled: true
-      xpack.security.transport.ssl.verification_mode: certificate
-      xpack.security.transport.ssl.key: certs/es01.key
-      xpack.security.transport.ssl.certificate: certs/es01.crt
-      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
       ES_JAVA_OPTS: -Xms512m -Xmx512m
       ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
     ports:
       - 9200:9200
-    networks:
-      - elk
 
-  es02:
+  elasticsearch2:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
-    container_name: es02
     volumes:
       - ./elasticsearch/node2/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
-      - ./elasticsearch/node2/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
       - ./elasticsearch/node2/certs:/usr/share/elasticsearch/config/certs:ro,Z
-      - esdata02:/usr/share/elasticsearch/data:Z
+      - esdata02:/usr/share/elasticsearch/data
     environment:
-      node.name: es02
-      cluster.name: my-cluster
-      discovery.seed_hosts: es01,es02,es03
-      cluster.initial_master_nodes: es01,es02,es03
-      bootstrap.memory_lock: true
-      xpack.security.enabled: true
-      xpack.security.transport.ssl.enabled: true
-      xpack.security.transport.ssl.verification_mode: certificate
-      xpack.security.transport.ssl.key: certs/es02.key
-      xpack.security.transport.ssl.certificate: certs/es02.crt
-      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
       ES_JAVA_OPTS: -Xms512m -Xmx512m
-    networks:
-      - elk
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
 
-  es03:
+  elasticsearch3:
     image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_VERSION}
-    container_name: es03
     volumes:
       - ./elasticsearch/node3/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro,Z
-      - ./elasticsearch/node3/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
+      - ./elasticsearch/role_mapping.yml:/usr/share/elasticsearch/config/role_mapping.yml
       - ./elasticsearch/node3/certs:/usr/share/elasticsearch/config/certs:ro,Z
-      - esdata03:/usr/share/elasticsearch/data:Z
+      - esdata03:/usr/share/elasticsearch/data
     environment:
-      node.name: es03
-      cluster.name: my-cluster
-      discovery.seed_hosts: es01,es02,es03
-      cluster.initial_master_nodes: es01,es02,es03
-      bootstrap.memory_lock: true
-      xpack.security.enabled: true
-      xpack.security.transport.ssl.enabled: true
-      xpack.security.transport.ssl.verification_mode: certificate
-      xpack.security.transport.ssl.key: certs/es03.key
-      xpack.security.transport.ssl.certificate: certs/es03.crt
-      xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
       ES_JAVA_OPTS: -Xms512m -Xmx512m
-    networks:
-      - elk
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
 
-  logstash:
-    build:
-      context: logstash/
-      args:
-        ELASTIC_VERSION: ${ELASTIC_VERSION}
-    volumes:
-      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
-      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
-    ports:
-      - 5044:5044
-      - 50000:50000/tcp
-      - 50000:50000/udp
-      - 9600:9600
-    environment:
-      LS_JAVA_OPTS: -Xms256m -Xmx256m
-      LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
-    networks:
-      - elk
-    depends_on:
-      - es01
-      - es02      
-      - es03
-    restart: unless-stopped
+  #-#logstash:
+    #-#build:
+      #-#context: logstash/
+      #-#args:
+        #-#ELASTIC_VERSION: ${ELASTIC_VERSION}
+    #-#volumes:
+      #-#- ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro,Z
+      #-#- ./logstash/pipeline:/usr/share/logstash/pipeline:ro,Z
+    #-#ports:
+      #-#- 5044:5044
+      #-#- 50000:50000/tcp
+      #-#- 50000:50000/udp
+      #-#- 9600:9600
+    #-#environment:
+      #-#LS_JAVA_OPTS: -Xms256m -Xmx256m
+      #-#LOGSTASH_INTERNAL_PASSWORD: ${LOGSTASH_INTERNAL_PASSWORD:-}
+    #-#depends_on:
+      #-#- elasticsearch
+      #-#- elasticsearch2      
+      #-#- elasticsearch3
+    #-#restart: unless-stopped
 
   kibana:
     build:
@@ -158,33 +110,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - elk
     depends_on:
-      - es01
-      - es02    
-      - es03  
+      - elasticsearch
+      - elasticsearch2    
+      - elasticsearch3  
     restart: unless-stopped
 
   nginx:
     image: nginx:stable
-    container_name: nginx
     ports:
       - "10443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
-    networks:
-      - elk
     depends_on:
       - kibana
-      - es01
-      - es02
-      - es03
-
-networks:
-  elk:
-    driver: bridge
+      - elasticsearch
+      - elasticsearch2
+      - elasticsearch3
 
 volumes:
   esdata01:

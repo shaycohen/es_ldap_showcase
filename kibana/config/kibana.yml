@@ -10,7 +10,7 @@ server.publicBaseUrl: "https://localhost:10443/kibana"
 elasticsearch.hosts: [ "https://nginx:443/elasticsearch" ]
 elasticsearch.ssl.verificationMode: none  # or 'certificate' with a CA cert
 elasticsearch.username: kibana_system
-elasticsearch.password:  "passwordd"
+elasticsearch.password:  "password"
 monitoring.ui.container.elasticsearch.enabled: true
 monitoring.ui.container.logstash.enabled: true
 

@@ -12,7 +12,7 @@ basedn = dc=example,dc=com
 EOF
 
 URL='ldap://127.0.0.1:3389'
-LDAP_USERS='ldap_user4 ldap_user5'
+LDAP_USERS='ldap_user1 ldap_user2'
 LDAP_PASSW='password'
 ldapsearch -H $URL -x -b '' -s base vendorVersion
 dsconf localhost backend suffix list

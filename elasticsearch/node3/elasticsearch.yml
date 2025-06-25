@@ -1,21 +1,21 @@
 cluster.name: my-cluster
-node.name: es03
+node.name: elasticsearch3
 network.host: 0.0.0.0
-discovery.seed_hosts: ["es01", "es02", "es03"]
-cluster.initial_master_nodes: ["es01", "es02", "es03"]
+discovery.seed_hosts: ["elasticsearch"]
+cluster.initial_master_nodes: ["elasticsearch"]
 
 # HTTPS
 xpack.security.http.ssl.enabled: true
-xpack.security.http.ssl.key: certs/es03.key
-xpack.security.http.ssl.certificate: certs/es03.crt
+xpack.security.http.ssl.key: certs/elasticsearch3.key
+xpack.security.http.ssl.certificate: certs/elasticsearch3.crt
 xpack.security.http.ssl.certificate_authorities: certs/ca.crt
 
 # TLS
 xpack.security.enabled: true
 xpack.security.transport.ssl.enabled: true
 xpack.security.transport.ssl.verification_mode: certificate
-xpack.security.transport.ssl.key: certs/es03.key
-xpack.security.transport.ssl.certificate: certs/es03.crt
+xpack.security.transport.ssl.key: certs/elasticsearch3.key
+xpack.security.transport.ssl.certificate: certs/elasticsearch3.crt
 xpack.security.transport.ssl.certificate_authorities: certs/ca.crt
 
 # ✅ LDAP Realm (add this block)

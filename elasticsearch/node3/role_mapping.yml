@@ -1,5 +1,0 @@
-superuser:
-  - "uid=ldap_user4,ou=people,dc=example,dc=com"
-
-test_group_role:
-  - "cn=test_group,dc=example,dc=com"

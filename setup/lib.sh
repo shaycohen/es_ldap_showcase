@@ -24,7 +24,7 @@ function suberr {
 function wait_for_elasticsearch {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
-	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}' "http://${elasticsearch_host}:9200/" )
+	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}' "https://${elasticsearch_host}:9200/" )
 
 	if [[ -n "${ELASTIC_PASSWORD:-}" ]]; then
 		args+=( '-u' "elastic:${ELASTIC_PASSWORD}" )
@@ -36,7 +36,7 @@ function wait_for_elasticsearch {
 	# retry for max 300s (60*5s)
 	for _ in $(seq 1 60); do
 		local -i exit_code=0
-		output="$(curl "${args[@]}")" || exit_code=$?
+		output="$(curl -k "${args[@]}")" || exit_code=$?
 
 		if ((exit_code)); then
 			result=$exit_code
@@ -61,7 +61,7 @@ function wait_for_elasticsearch {
 function wait_for_builtin_users {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
-	local -a args=( '-s' '-D-' '-m15' "http://${elasticsearch_host}:9200/_security/user?pretty" )
+	local -a args=( '-s' '-D-' '-m15' "https://${elasticsearch_host}:9200/_security/user?pretty" )
 
 	if [[ -n "${ELASTIC_PASSWORD:-}" ]]; then
 		args+=( '-u' "elastic:${ELASTIC_PASSWORD}" )
@@ -86,7 +86,7 @@ function wait_for_builtin_users {
 			if [[ "$line" =~ _reserved.+true ]]; then
 				(( num_users++ ))
 			fi
-		done < <(curl "${args[@]}"; printf '%s' "$?")
+		done < <(curl -k "${args[@]}"; printf '%s' "$?")
 
 		if ((exit_code)); then
 			result=$exit_code
@@ -111,7 +111,7 @@ function check_user_exists {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
 	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}'
-		"http://${elasticsearch_host}:9200/_security/user/${username}"
+		"https://${elasticsearch_host}:9200/_security/user/${username}"
 		)
 
 	if [[ -n "${ELASTIC_PASSWORD:-}" ]]; then
@@ -122,7 +122,7 @@ function check_user_exists {
 	local -i exists=0
 	local output
 
-	output="$(curl "${args[@]}")"
+	output="$(curl -k "${args[@]}")"
 	if [[ "${output: -3}" -eq 200 || "${output: -3}" -eq 404 ]]; then
 		result=0
 	fi
@@ -147,7 +147,7 @@ function set_user_password {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
 	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}'
-		"http://${elasticsearch_host}:9200/_security/user/${username}/_password"
+		"https://${elasticsearch_host}:9200/_security/user/${username}/_password"
 		'-X' 'POST'
 		'-H' 'Content-Type: application/json'
 		'-d' "{\"password\" : \"${password}\"}"
@@ -160,7 +160,7 @@ function set_user_password {
 	local -i result=1
 	local output
 
-	output="$(curl "${args[@]}")"
+	output="$(curl -k "${args[@]}")"
 	if [[ "${output: -3}" -eq 200 ]]; then
 		result=0
 	fi
@@ -181,7 +181,7 @@ function create_user {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
 	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}'
-		"http://${elasticsearch_host}:9200/_security/user/${username}"
+		"https://${elasticsearch_host}:9200/_security/user/${username}"
 		'-X' 'POST'
 		'-H' 'Content-Type: application/json'
 		'-d' "{\"password\":\"${password}\",\"roles\":[\"${role}\"]}"
@@ -194,7 +194,7 @@ function create_user {
 	local -i result=1
 	local output
 
-	output="$(curl "${args[@]}")"
+	output="$(curl -k "${args[@]}")"
 	if [[ "${output: -3}" -eq 200 ]]; then
 		result=0
 	fi
@@ -214,7 +214,7 @@ function ensure_role {
 	local elasticsearch_host="${ELASTICSEARCH_HOST:-elasticsearch}"
 
 	local -a args=( '-s' '-D-' '-m15' '-w' '%{http_code}'
-		"http://${elasticsearch_host}:9200/_security/role/${name}"
+		"https://${elasticsearch_host}:9200/_security/role/${name}"
 		'-X' 'POST'
 		'-H' 'Content-Type: application/json'
 		'-d' "$body"
@@ -227,7 +227,7 @@ function ensure_role {
 	local -i result=1
 	local output
 
-	output="$(curl "${args[@]}")"
+	output="$(curl -k "${args[@]}")"
 	if [[ "${output: -3}" -eq 200 ]]; then
 		result=0
 	fi
