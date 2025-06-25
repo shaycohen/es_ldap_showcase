@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")" 
 
-echo "Generating Elasticsearch TLS certificates"
+echo " - Generating Elasticsearch TLS certificates"
 mkdir -p elasticsearch/certs
 cd elasticsearch/certs
 
@@ -20,7 +20,7 @@ for node in elasticsearch elasticsearch2 elasticsearch3; do
     -out ${node}.crt -days 365 -sha256
 done
 
-echo "Copying certificates to node folders"
+echo " - Copying certificates to node folders"
 cp elasticsearch.* ../node1/certs/
 cp ca.crt ../node1/certs/
 cp ca.key ../node1/certs/
@@ -39,62 +39,79 @@ chmod 600 ../node?/certs/*.key
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "Starting docker-compose services"
+echo " - Starting docker-compose services"
 docker-compose build
 docker-compose run --rm setup
 docker-compose up -d elasticsearch elasticsearch2 elasticsearch3
 
-echo "Waiting for cluster status = green"
+echo " - Waiting for cluster status = green"
 while : 
 do
-    CLUSTER_STATUS=$(docker-compose exec elasticsearch curl -k -u 'elastic:password' "https://elasticsearch:9200/_cluster/health?filter_path=status")
-    echo "Cluster status $CLUSTER_STATUS"
+    CLUSTER_STATUS=$(docker-compose exec elasticsearch curl -s -k -u 'elastic:password' "https://elasticsearch:9200/_cluster/health?filter_path=status")
+    echo " - Cluster status $CLUSTER_STATUS"
     echo $CLUSTER_STATUS | grep -i green && { break; }
     sleep 3
 done
 
-echo "Resetting kibana_system password"
-docker-compose exec elasticsearch curl -k -u 'elastic:password' -X POST -H "Content-type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d '{ "password": "password" }'
+echo " - Resetting kibana_system password"
+docker-compose exec elasticsearch curl -s -k -u 'elastic:password' -X POST -H "Content-type: application/json" https://elasticsearch:9200/_security/user/kibana_system/_password -d '{ "password": "password" }'
 
-echo "Starting dirsrv"
+echo " - Starting dirsrv"
 docker-compose up --build -d dirsrv
 
-echo "Waiting for dirsrv to become ready"
+echo " - Waiting for dirsrv to become ready"
 URL='ldap://127.0.0.1:3389'                                                 
 while : 
 do
-    docker-compose exec dirsrv ldapsearch -H $URL -x -b '' -s base vendorVersion && { break; }
+    docker-compose exec dirsrv ldapsearch -H $URL -x -b '' -s base vendorVersion && { 
+        echo " - Sleeping for 10 seconds"
+        sleep 10
+        break
+    }
     sleep 3
 done
 
 
-echo "Initializing LDAP users and groups"
-docker-compose exec dirsrv bash -c "bash -x dirsrv_init.sh"
+echo " - Initializing LDAP users and groups"
+docker-compose exec dirsrv bash -c "bash dirsrv_init.sh"
 
-echo "Starting nginx"
+echo " - Starting nginx"
 docker-compose up -d nginx
 
-echo "Checking Elasticsearch cluster status"
-curl -u 'elastic:password' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
-echo "Activating Elasticsearch trial license"
-docker-compose exec elasticsearch curl -X POST -u 'elastic:password' -k 'https://elasticsearch:9200/_license/start_trial?acknowledge=true'
+echo " - Checking Elasticsearch cluster status"
+curl -s -u 'elastic:password' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
+echo " - Activating Elasticsearch trial license"
+docker-compose exec elasticsearch curl -s -X POST -u 'elastic:password' -k 'https://elasticsearch:9200/_license/start_trial?acknowledge=true'
 
-echo "Authenticating with LDAP user"
-curl -u 'ldap_user1:password' -k 'https://localhost:10443/elasticsearch/_security/_authenticate?pretty'
+echo " - Authenticating with LDAP user"
+curl -s -u 'ldap_user1:password' -k 'https://localhost:10443/elasticsearch/_security/_authenticate?pretty'
 
-echo "Verifying all Elasticsearch nodes are joined"
-curl -u 'ldap_user1:password' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
+echo " - Verifying all Elasticsearch nodes are joined"
+curl -s -u 'ldap_user1:password' -k 'https://localhost:10443/elasticsearch/_cat/nodes?v'
 
-curl -u 'kibana_system:password' -k 'https://localhost:10443/elasticsearch/_security/_authenticate'
+curl -s -u 'kibana_system:password' -k 'https://localhost:10443/elasticsearch/_security/_authenticate'
 
-echo "Waiting for kibana to become ready"
+echo " - Waiting for kibana to become ready"
 while : 
 do
     KIBANA_STATUS=$(curl -s -k https://localhost:10443/kibana/api/status)
-    echo "Kibana status $KIBANA_STATUS"
+    echo " - Kibana status $KIBANA_STATUS"
     echo $KIBANA_STATUS | grep -i '"available"' && { break; }
     sleep 3
 done
+echo " - Waiting for kibana to allow login"
+while : 
+do
+    KIBANA_STATUS=$(curl -s -k -X POST https://localhost:10443/kibana/internal/security/login \
+  -H "kbn-xsrf: true" \
+  -H "Content-Type: application/json" \
+  -d '{"providerType":"basic","providerName":"basic","currentURL":"https://localhost:10443/kibana/login?msg=LOGGED_OUT","params":{"username":"ldap_user1","password":"password"}}')
+    echo " - Kibana login status $KIBANA_STATUS"
+    echo $KIBANA_STATUS | grep -i '"location"' && { break; }
+    sleep 3
+done
 
-echo "Setup completed!"
-echo "Browse to https://localhost:10443/kibana user:ldap_user1 password:password"
+
+
+echo " - Setup completed!"
+echo " # Browse to https://localhost:10443/kibana user:ldap_user1 password:password"
